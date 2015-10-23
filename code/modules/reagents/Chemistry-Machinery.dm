@@ -219,7 +219,10 @@
 	recharge_delay /= time/2         //delay between recharges, double the usual time on lowest 50% less than usual on highest
 	for(var/obj/item/weapon/stock_parts/manipulator/M in component_parts)
 		for(i=1, i<=M.rating, i++)
-			dispensable_reagents = sortList(dispensable_reagents | special_reagents[i])
+			dispensable_reagents = dispensable_reagents | special_reagents[i]
+		//the parameter to sortList() must be a list and not a product of a list operation.
+		//Watch for hits on git grep -E 'sortList\([^)]+\|[^)]+\)' , for example.
+	dispensable_reagents = sortList( dispensable_reagents )
 
 /obj/machinery/chem_dispenser/constructable/attackby(var/obj/item/I, var/mob/user, params)
 	..()
@@ -739,6 +742,10 @@
 ////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////
 
+#define TAB_ANALYSIS 1
+#define TAB_EXPERIMENT 2
+#define TAB_DATABASE 3
+
 /obj/machinery/computer/pandemic
 	name = "PanD.E.M.I.C 2200"
 	desc = "Used to work with viruses."
@@ -756,7 +763,7 @@
 	var/new_diseases = list()
 	var/new_symptoms = list()
 	var/new_cures = list()
-	var/tab_open = 1 //1-Virus Description, 2-Experiment, 3-Database
+	var/tab_open = TAB_ANALYSIS //the magic of defines!
 	var/temp_html = ""
 	var/wait = null
 	var/obj/item/weapon/reagent_containers/glass/beaker = null
@@ -843,16 +850,16 @@
 				B.pixel_y = rand(-3, 3)
 				var/vaccine_type = new_cures[text2num(href_list["cure"])]
 				if(vaccine_type)
-					if(!istype(vaccine_type, /datum/disease))
+					if(!ispath(vaccine_type))
 						if(archive_diseases[vaccine_type])
 							var/datum/disease/D = archive_diseases[vaccine_type]
 							B.name = "[D.name] vaccine bottle"
 							B.reagents.add_reagent("vaccine", 15, list(vaccine_type))
 							replicator_cooldown(200)
 					else
-						var/datum/disease/DD = vaccine_type
-						B.name = "[DD.name] vaccine bottle"
-						B.reagents.add_reagent("vaccine", 15, list(DD))
+						var/datum/disease/D = vaccine_type
+						B.name = "[D.name] vaccine bottle"
+						B.reagents.add_reagent("vaccine", 15, list(vaccine_type))
 						replicator_cooldown(200)
 		else
 			src.temp_html = "The replicator is not ready yet."
@@ -914,30 +921,30 @@
 		switch(href_list["chem_choice"])
 			if("virusfood")
 				if(virusfood_ammount>0)
-					if(beaker.reagents.add_reagent("virusfood",max(beaker.reagents.maximum_volume-beaker.reagents.total_volume,1)))
-						virusfood_ammount -= 1
-						usr << "Mutation process is sucessfull!."
+					beaker.reagents.add_reagent("virusfood",max(beaker.reagents.maximum_volume-beaker.reagents.total_volume,1))
+					virusfood_ammount -= 1
+					usr << "Virus Food administered."
 				else
 					usr << "Not enough Virus Food stored!"
 			if("mutagen")
 				if(mutagen_ammount>0)
-					if(beaker.reagents.add_reagent("mutagen",max(beaker.reagents.maximum_volume-beaker.reagents.total_volume,1)))
-						mutagen_ammount -= 1
-						usr << "Mutation process is sucessfull!."
+					beaker.reagents.add_reagent("mutagen",max(beaker.reagents.maximum_volume-beaker.reagents.total_volume,1))
+					mutagen_ammount -= 1
+					usr << "Unstable Mutagen administered."
 				else
 					usr << "Not enough Unstable Mutagen stored!"
 			if("plasma")
 				if(plasma_ammount>0)
-					if(beaker.reagents.add_reagent("virusfood",max(beaker.reagents.maximum_volume-beaker.reagents.total_volume,1)))
-						plasma_ammount -= 1 //no idea why plasma_ammount-- doesn't work here.
-						usr << "Mutation process is sucessfull!."
+					beaker.reagents.add_reagent("plasma",max(beaker.reagents.maximum_volume-beaker.reagents.total_volume,1))
+					plasma_ammount -= 1 //no idea why plasma_ammount-- doesn't work here.
+					usr << "Plasma administered."
 				else
 					usr << "Not enough Plasma stored!"
 			if("synaptizine")
 				if(synaptizine_ammount>0)
-					if(beaker.reagents.add_reagent("synaptizine",max(beaker.reagents.maximum_volume-beaker.reagents.total_volume,1)))
-						synaptizine_ammount -= 1
-						usr << "Mutation process is sucessfull!."
+					beaker.reagents.add_reagent("synaptizine",max(beaker.reagents.maximum_volume-beaker.reagents.total_volume,1))
+					synaptizine_ammount -= 1
+					usr << "Synaptizine administered."
 				else
 					usr << "Not enough Synaptizine!"
 			if("reset")
@@ -949,7 +956,7 @@
 		src.updateUsrDialog()
 		return
 
-	else if(href_list["update"])
+	else if(href_list["update_virus"])
 		if(beaker && beaker.reagents)
 			if(beaker.reagents.reagent_list.len)
 				var/datum/reagent/blood/BL = locate() in beaker.reagents.reagent_list
@@ -957,7 +964,22 @@
 					if(BL.data && BL.data["viruses"])
 						var/list/viruses = BL.data["viruses"]
 						for(var/datum/disease/D in viruses)
-							if(istype(D,/datum/disease/advance)) //advanced deseases, we scan for symptoms first
+							var/d_test = 1
+							for(var/datum/disease/DT in new_diseases) //we scan for the desease itself to add to the list
+								if(D.IsSame(DT))
+									d_test = 0
+							if(d_test)
+								new_diseases += D
+								usr << "New disease added to the database!"
+	else if(href_list["update_symptom"])
+		if(beaker && beaker.reagents)
+			if(beaker.reagents.reagent_list.len)
+				var/datum/reagent/blood/BL = locate() in beaker.reagents.reagent_list
+				if(BL)
+					if(BL.data && BL.data["viruses"])
+						var/list/viruses = BL.data["viruses"]
+						for(var/datum/disease/D in viruses)
+							if(istype(D,/datum/disease/advance)) //advanced deseases, we scan for symptoms
 								var/datum/disease/advance/AD = D //inheritance failed me today
 								for(var/datum/symptom/S in AD.symptoms)
 									var/s_test = 1
@@ -967,14 +989,11 @@
 									if(s_test)
 										new_symptoms += S
 										usr << "New symptom added to the database!"
-							//we scan for the desease itself to add to the list
-							var/d_test = 1
-							for(var/datum/disease/DT in new_diseases)
-								if(D.IsSame(DT))
-									d_test = 0
-							if(d_test)
-								new_diseases += D
-								usr << "New disease added to the database!"
+	else if(href_list["update_cure"])
+		if(beaker && beaker.reagents)
+			if(beaker.reagents.reagent_list.len)
+				var/datum/reagent/blood/BL = locate() in beaker.reagents.reagent_list
+				if(BL)
 					if(BL.data && BL.data["resistances"])
 						var/v_test = 1
 						for(var/resistance in BL.data["resistances"])
@@ -1013,7 +1032,7 @@
 	dat += "<A href='?src=\ref[src];tab_open=3'>Database</a><br><hr><BR>"
 
 	switch(tab_open)
-		if(1) //Virus Description
+		if(TAB_ANALYSIS)
 			if(!beaker)
 				dat += "<b>No beaker inserted.</b><BR>"
 
@@ -1087,7 +1106,7 @@
 							dat += "nothing<BR>"
 					else
 						dat += "nothing<BR>"
-		if(2) //Experimentation
+		if(TAB_EXPERIMENT)
 			dat += "<b>Available Chems:</b><br>"
 			dat += "Virus Food: [virusfood_ammount].<br>"
 			dat += "Unstable Mutage: [mutagen_ammount].<br>"
@@ -1137,24 +1156,26 @@
 				dat += "<A href='?src=\ref[src];chem_choice=synaptizine'>Synaptizine</a><BR>"
 				dat += "<A href='?src=\ref[src];chem_choice=reset'>Reset Virus</a><BR>"
 
-		if(3) //Database
-			dat += "<b>Database:</b>"
-			dat += "<A href='?src=\ref[src];update=1'>Update</a><BR><hr>"
+		if(TAB_DATABASE)
+			dat += "<b>Database:</b><BR><hr>"
 			//describe database here
 			var/loop = 0
-			dat += "<br><b>Diseases:</b> <br>"
+			dat += "<br><b>Diseases:</b>"
+			dat += "<A href='?src=\ref[src];update_virus=1'>Update</a><BR><hr>"
 			for(var/datum/disease/type in new_diseases)
 				loop++
 				dat += "[type.name] "
-				dat += "<A href='?src=\ref[src];virus=[loop]'>- <i>Make</i></A><br>"
+				dat += "<li><A href='?src=\ref[src];virus=[loop]'>- <i>Make</i></A><br></li>"
 			loop = 0
-			dat += "<br><b>Symptoms:</b> <br>"
+			dat += "<br><b>Symptoms:</b>"
+			dat += "<A href='?src=\ref[src];update_symptom=1'>Update</a><BR><hr>"
 			for(var/datum/symptom/type in new_symptoms)
 				loop++
 				dat += "[type.name] "
-				dat += "<A href='?src=\ref[src];symptom=[loop]'>- <i>Mutate</i></A><br>"
+				dat += "<li><A href='?src=\ref[src];symptom=[loop]'>- <i>Mutate</i></A><br></li>"
 			loop = 0
-			dat += "<br><b>Vaccines:</b> <br>"
+			dat += "<br><b>Vaccines:</b>"
+			dat += "<A href='?src=\ref[src];update_cure=1'>Update</a><BR><hr>"
 			for(var/type in new_cures)
 				loop++
 				if(!ispath(type))
@@ -1163,15 +1184,9 @@
 				else
 					var/datum/disease/gn = new type(0, null)
 					dat += "[gn.name] "
-				dat += "<A href='?src=\ref[src];cure=[loop]'> - <i>Make</i></A><br>"
+				dat += "<li><A href='?src=\ref[src];cure=[loop]'> - <i>Make</i></A><br></li>"
 
 	dat += "<hr><BR><A href='?src=\ref[src];eject=1'>Eject beaker</A>"
-
-	//user << browse("<TITLE>[src.name]</TITLE><BR>[dat]", "window=pandemic;size=575x400")
-	//onclose(user, "pandemic") //Old user interface
-
-	//dat += "<A href='?src=\ref[src];action=eject'>Eject the reagents</a><BR>"
-	//EXAMPLE, REMOVE WHEN FINISHED
 
 	var/datum/browser/popup = new(user, "pandemic", "PanD.E.M.I.C 2200")
 	popup.set_content(dat)
@@ -1228,6 +1243,11 @@
 	else
 		..()
 	return
+
+#undef TAB_ANALYSIS
+#undef TAB_EXPERIMENT
+#undef TAB_DATABASE
+
 ////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////
 /obj/machinery/reagentgrinder

@@ -1,6 +1,9 @@
 // DM Environment file for tgstation.dme.
 // All manual changes should be made outside the BEGIN_ and END_ blocks.
  // New source code should be placed in .dm files: choose File/New --> Code File.
+ 
+//For later integration: #include "code\game\objects\structures\vehicles\adminbus.dm" 
+ 
 // BEGIN_INTERNALS
 // END_INTERNALS
 
@@ -357,9 +360,6 @@
 #include "code\game\gamemodes\meteor\meteor.dm"
 #include "code\game\gamemodes\meteor\meteors.dm"
 #include "code\game\gamemodes\monkey\monkey.dm"
-#include "code\game\gamemodes\nuclear\blackops.dm"
-#include "code\game\gamemodes\nuclear\blackops_objectives.dm"
-#include "code\game\gamemodes\nuclear\blackopsitems.dm"
 #include "code\game\gamemodes\nuclear\nuclear.dm"
 #include "code\game\gamemodes\nuclear\nuclearbomb.dm"
 #include "code\game\gamemodes\nuclear\pinpointer.dm"

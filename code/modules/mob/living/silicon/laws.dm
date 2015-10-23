@@ -19,10 +19,6 @@
 				R.show_laws(1, 1)
 	//			R.law_change_counter++
 
-/mob/living/silicon/proc/clear_zeroth_law(force)
-	laws_sanity_check()
-	//laws.clear_zeroth_law(force) //lol what.
-
 /mob/living/silicon/proc/add_inherent_law(var/law)
 	laws_sanity_check()
 	laws.add_inherent_law(law)
